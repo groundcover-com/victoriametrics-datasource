@@ -96,6 +96,29 @@ func TestResponse_getDataFrames(t *testing.T) {
 	}
 	f(o)
 
+	// alerting scalar with trace: the trace frame must be dropped — we force trace=1 only
+	// for our slow-query logging, so it must not reach Grafana's alert evaluation.
+	o = opts{
+		status: "success",
+		data: Data{
+			ResultType: "scalar",
+			Result:     []byte(`[1583786142, "1"]`),
+		},
+		trace:       &Trace{Duration: 123.45, Message: "trace_test"},
+		forAlerting: true,
+		query:       Query{},
+		want: func() data.Frames {
+			return []*data.Frame{
+				data.NewFrame("",
+					data.NewField(data.TimeSeriesTimeFieldName, nil, []time.Time{time.Unix(1583786142, 0)}),
+					data.NewField(data.TimeSeriesValueFieldName, nil, []float64{1}),
+				).SetMeta(&data.FrameMeta{Custom: &CustomMeta{ResultType: scalar}}),
+			}
+		},
+		wantErr: false,
+	}
+	f(o)
+
 	// incorrect result type
 	o = opts{
 		status: "success",

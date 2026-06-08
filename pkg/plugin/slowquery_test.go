@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -157,14 +158,18 @@ func TestLogSlowAlertingQuery(t *testing.T) {
 		if !ok {
 			t.Fatalf("trace field missing")
 		}
-		// The trace is logged as a structured value (nested JSON object), not a
-		// stringified blob, so upstream tooling can address its fields.
-		tr, ok := v.(*Trace)
-		if !ok || tr == nil {
-			t.Fatalf("trace should be logged as a structured *Trace, got %T", v)
+		// The trace is logged as a JSON string (Grafana's plugin-log bridge renders
+		// nested structs as Go map[...], not JSON; a marshaled string stays parseable).
+		s, ok := v.(string)
+		if !ok || s == "" {
+			t.Fatalf("trace should be a non-empty JSON string, got %T %v", v, v)
 		}
-		if tr.Message != "execution time" {
-			t.Fatalf("trace.Message = %q, want %q", tr.Message, "execution time")
+		var decoded Trace
+		if err := json.Unmarshal([]byte(s), &decoded); err != nil {
+			t.Fatalf("trace should be valid JSON: %v (%q)", err, s)
+		}
+		if decoded.Message != "execution time" {
+			t.Fatalf("trace.Message = %q, want %q", decoded.Message, "execution time")
 		}
 		if _, anomaly := field(got.args, "trace_anomaly"); anomaly {
 			t.Fatalf("did not expect trace_anomaly flag for a valid trace")
@@ -340,8 +345,13 @@ func TestQueryAlertingForcesTraceAndLogsWhenSlow(t *testing.T) {
 	}
 	if v, ok := field(got.args, "trace"); !ok {
 		t.Fatalf("trace field missing")
-	} else if tr, ok := v.(*Trace); !ok || tr == nil || tr.Message == "" {
-		t.Fatalf("expected a structured non-empty *Trace, got %T (%v)", v, v)
+	} else if s, ok := v.(string); !ok || s == "" {
+		t.Fatalf("expected a non-empty JSON string trace, got %T (%v)", v, v)
+	} else {
+		var decoded Trace
+		if err := json.Unmarshal([]byte(s), &decoded); err != nil || decoded.Message == "" {
+			t.Fatalf("trace should be valid non-empty JSON, got %q (err=%v)", s, err)
+		}
 	}
 	if _, anomaly := field(got.args, "trace_anomaly"); anomaly {
 		t.Fatalf("did not expect anomaly flag for a populated trace")
