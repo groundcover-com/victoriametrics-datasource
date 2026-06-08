@@ -171,21 +171,6 @@ func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataReques
 	ruleUID := ruleUIDFromHeaders(headers)
 	orgID := req.PluginContext.OrgID
 
-	// TEMP debug (to be removed): confirm during a real alerting eval (1) which header
-	// key Grafana delivers the rule UID under (http_X-Rule-Uid vs X-Rule-Uid) and (2)
-	// that OrgID is populated for tenant attribution. We log both rule-UID candidate
-	// values, the resolved UID, the org ID, and all header key names (names only — not
-	// values, to avoid leaking auth headers).
-	if forAlerting {
-		d.logger.Info("gc_vm_rule_uid_debug",
-			"http_X-Rule-Uid", headers["http_X-Rule-Uid"],
-			"X-Rule-Uid", headers["X-Rule-Uid"],
-			"resolved_rule_uid", ruleUID,
-			"org_id", orgID,
-			"header_keys", sortedHeaderKeys(headers),
-		)
-	}
-
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	for _, q := range req.Queries {

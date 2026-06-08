@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"net/url"
-	"sort"
 	"time"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
@@ -27,11 +26,9 @@ const (
 
 	// ruleUIDHeader is the header Grafana sets during alerting evaluation. It builds
 	// rule metadata {Name,Uid,Type,Version} and emits each as http_X-Rule-<key>
-	// (URL-escaped), alongside the FromAlert header.
+	// (URL-escaped), alongside the FromAlert header. Confirmed in a live eval: the rule
+	// UID arrives under this exact key (the canonical "X-Rule-Uid" is never populated).
 	ruleUIDHeader = "http_X-Rule-Uid"
-	// ruleUIDHeaderCanonical is a defensive fallback in case the header is delivered
-	// without the http_ prefix.
-	ruleUIDHeaderCanonical = "X-Rule-Uid"
 )
 
 // slowQueryThreshold is the hardcoded duration at or above which an alerting query is
@@ -57,26 +54,12 @@ type slowQueryLog struct {
 func ruleUIDFromHeaders(headers map[string]string) string {
 	raw := headers[ruleUIDHeader]
 	if raw == "" {
-		raw = headers[ruleUIDHeaderCanonical]
-	}
-	if raw == "" {
 		return ""
 	}
 	if unescaped, err := url.QueryUnescape(raw); err == nil {
 		return unescaped
 	}
 	return raw
-}
-
-// sortedHeaderKeys returns the header key names (not values) in sorted order, for the
-// temporary rule-UID debug log.
-func sortedHeaderKeys(headers map[string]string) []string {
-	keys := make([]string, 0, len(headers))
-	for k := range headers {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 // logSlowAlertingQuery emits one structured log line for a slow monitor (alerting)

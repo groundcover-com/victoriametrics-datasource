@@ -68,9 +68,9 @@ func TestRuleUIDFromHeaders(t *testing.T) {
 			want:    "rule one",
 		},
 		{
-			name:    "canonicalized fallback X-Rule-Uid",
+			name:    "bare X-Rule-Uid is not used (Grafana sends http_X-Rule-Uid)",
 			headers: map[string]string{"X-Rule-Uid": "xyz"},
-			want:    "xyz",
+			want:    "",
 		},
 		{
 			name:    "absent header returns empty",
