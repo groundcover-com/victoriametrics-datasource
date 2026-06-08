@@ -150,8 +150,14 @@ func TestLogSlowAlertingQuery(t *testing.T) {
 		if !ok {
 			t.Fatalf("trace field missing")
 		}
-		if s, _ := v.(string); s == "" || s == "null" {
-			t.Fatalf("trace should be non-empty JSON, got %q", s)
+		// The trace is logged as a structured value (nested JSON object), not a
+		// stringified blob, so upstream tooling can address its fields.
+		tr, ok := v.(*Trace)
+		if !ok || tr == nil {
+			t.Fatalf("trace should be logged as a structured *Trace, got %T", v)
+		}
+		if tr.Message != "execution time" {
+			t.Fatalf("trace.Message = %q, want %q", tr.Message, "execution time")
 		}
 		if _, anomaly := field(got.args, "trace_anomaly"); anomaly {
 			t.Fatalf("did not expect trace_anomaly flag for a valid trace")
@@ -319,8 +325,10 @@ func TestQueryAlertingForcesTraceAndLogsWhenSlow(t *testing.T) {
 	if v, ok := field(got.args, "query"); !ok || v != "up" {
 		t.Fatalf("query = %v (ok=%v), want up", v, ok)
 	}
-	if s, _ := func() (string, bool) { v, ok := field(got.args, "trace"); s, _ := v.(string); return s, ok }(); s == "" {
-		t.Fatalf("expected non-empty trace, got %q", s)
+	if v, ok := field(got.args, "trace"); !ok {
+		t.Fatalf("trace field missing")
+	} else if tr, ok := v.(*Trace); !ok || tr == nil || tr.Message == "" {
+		t.Fatalf("expected a structured non-empty *Trace, got %T (%v)", v, v)
 	}
 	if _, anomaly := field(got.args, "trace_anomaly"); anomaly {
 		t.Fatalf("did not expect anomaly flag for a populated trace")

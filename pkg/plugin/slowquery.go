@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	"encoding/json"
 	"net/url"
 	"sort"
 	"time"
@@ -94,25 +93,20 @@ func logSlowAlertingQuery(logger log.Logger, p slowQueryLog) {
 		args = append(args, "rule_uid", p.ruleUID)
 	}
 
-	traceJSON, anomaly := traceJSON(p.trace)
-	args = append(args, "trace", traceJSON)
-	if anomaly {
+	// Log the trace as a structured value: the SDK logger emits JSON, so a *Trace is
+	// serialized as a nested JSON object (not a stringified blob), letting upstream
+	// tooling address its fields (e.g. trace.children[].duration_msec).
+	args = append(args, "trace", p.trace)
+	if traceIsAnomalous(p.trace) {
 		args = append(args, "trace_anomaly", true)
 	}
 
 	logger.Info(slowQueryLogPrefix, args...)
 }
 
-// traceJSON marshals the VM trace to JSON and reports whether it is missing/empty. A
-// trace is considered an instrumentation anomaly when it is nil or carries no message
-// (VM always populates a root message when trace=1 is honoured).
-func traceJSON(trace *Trace) (string, bool) {
-	if trace == nil || trace.Message == "" {
-		return "", true
-	}
-	b, err := json.Marshal(trace)
-	if err != nil {
-		return "", true
-	}
-	return string(b), false
+// traceIsAnomalous reports whether the VM trace is missing/empty for a completed query.
+// A trace is an instrumentation anomaly when it is nil or carries no message (VM always
+// populates a root message when trace=1 is honoured).
+func traceIsAnomalous(trace *Trace) bool {
+	return trace == nil || trace.Message == ""
 }
