@@ -278,7 +278,7 @@ func (di *DatasourceInstance) query(ctx context.Context, query backend.DataQuery
 		forAlerting: forAlerting,
 		ruleUID:     ruleUID,
 		query:       q.Expr,
-		endpoint:    q.endpoint(),
+		queryType:   q.queryType(),
 		duration:    time.Since(start),
 		trace:       r.Trace,
 	})

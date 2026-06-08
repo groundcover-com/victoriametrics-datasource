@@ -14,7 +14,7 @@ import (
 // When the plugin runs a monitor (alerting) query against VictoriaMetrics we always
 // request the VM execution trace (trace=1) and, if the query was slow, emit a single
 // structured log line carrying the trace plus the context we have (rule UID, query,
-// endpoint, duration). The groundcover sensor collects the line through the existing
+// query type, duration). The groundcover sensor collects the line through the existing
 // k8s log pipeline; this phase produces the log line only — no parsing or storage.
 //
 // See docs: groundcover-private/docs/superpowers/specs/2026-06-07-vm-slow-query-insights-design.md
@@ -42,7 +42,7 @@ type slowQueryLog struct {
 	forAlerting bool
 	ruleUID     string
 	query       string
-	endpoint    string
+	queryType   string
 	duration    time.Duration
 	trace       *Trace
 }
@@ -87,7 +87,7 @@ func logSlowAlertingQuery(logger log.Logger, p slowQueryLog) {
 
 	args := []interface{}{
 		"query", p.query,
-		"endpoint", p.endpoint,
+		"query_type", p.queryType,
 		"duration_ms", p.duration.Milliseconds(),
 	}
 	if p.ruleUID != "" {

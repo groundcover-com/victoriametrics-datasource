@@ -92,7 +92,7 @@ func TestRuleUIDFromHeaders(t *testing.T) {
 	}
 }
 
-func TestQueryEndpoint(t *testing.T) {
+func TestQueryType(t *testing.T) {
 	tests := []struct {
 		name string
 		q    Query
@@ -105,8 +105,8 @@ func TestQueryEndpoint(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.q.endpoint(); got != tt.want {
-				t.Fatalf("endpoint() = %q, want %q", got, tt.want)
+			if got := tt.q.queryType(); got != tt.want {
+				t.Fatalf("queryType() = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -122,7 +122,7 @@ func TestLogSlowAlertingQuery(t *testing.T) {
 			forAlerting: true,
 			ruleUID:     "rule-1",
 			query:       "up",
-			endpoint:    "instant",
+			queryType:   "instant",
 			duration:    slow,
 			trace:       &Trace{Duration: 4000, Message: "execution time"},
 		})
@@ -140,8 +140,8 @@ func TestLogSlowAlertingQuery(t *testing.T) {
 		if v, ok := field(got.args, "query"); !ok || v != "up" {
 			t.Fatalf("query = %v (ok=%v), want up", v, ok)
 		}
-		if v, ok := field(got.args, "endpoint"); !ok || v != "instant" {
-			t.Fatalf("endpoint = %v (ok=%v), want instant", v, ok)
+		if v, ok := field(got.args, "query_type"); !ok || v != "instant" {
+			t.Fatalf("query_type = %v (ok=%v), want instant", v, ok)
 		}
 		if v, ok := field(got.args, "duration_ms"); !ok || v != int64(4000) {
 			t.Fatalf("duration_ms = %v (ok=%v), want 4000", v, ok)
@@ -164,7 +164,7 @@ func TestLogSlowAlertingQuery(t *testing.T) {
 			forAlerting: true,
 			ruleUID:     "rule-1",
 			query:       "up",
-			endpoint:    "range",
+			queryType:   "range",
 			duration:    slow,
 			trace:       nil,
 		})
@@ -182,7 +182,7 @@ func TestLogSlowAlertingQuery(t *testing.T) {
 		logSlowAlertingQuery(l, slowQueryLog{
 			forAlerting: true,
 			query:       "up",
-			endpoint:    "range",
+			queryType:   "range",
 			duration:    slow,
 			trace:       &Trace{}, // no message, no children
 		})
@@ -199,7 +199,7 @@ func TestLogSlowAlertingQuery(t *testing.T) {
 		logSlowAlertingQuery(l, slowQueryLog{
 			forAlerting: true,
 			query:       "up",
-			endpoint:    "instant",
+			queryType:   "instant",
 			duration:    fast,
 			trace:       &Trace{Message: "execution time"},
 		})
@@ -213,7 +213,7 @@ func TestLogSlowAlertingQuery(t *testing.T) {
 		logSlowAlertingQuery(l, slowQueryLog{
 			forAlerting: false,
 			query:       "up",
-			endpoint:    "instant",
+			queryType:   "instant",
 			duration:    slow,
 			trace:       &Trace{Message: "execution time"},
 		})
@@ -228,7 +228,7 @@ func TestLogSlowAlertingQuery(t *testing.T) {
 			forAlerting: true,
 			ruleUID:     "",
 			query:       "up",
-			endpoint:    "instant",
+			queryType:   "instant",
 			duration:    slow,
 			trace:       &Trace{Message: "execution time"},
 		})
@@ -313,8 +313,8 @@ func TestQueryAlertingForcesTraceAndLogsWhenSlow(t *testing.T) {
 	if v, ok := field(got.args, "rule_uid"); !ok || v != "rule-42" {
 		t.Fatalf("rule_uid = %v (ok=%v), want rule-42", v, ok)
 	}
-	if v, ok := field(got.args, "endpoint"); !ok || v != "instant" {
-		t.Fatalf("endpoint = %v (ok=%v), want instant", v, ok)
+	if v, ok := field(got.args, "query_type"); !ok || v != "instant" {
+		t.Fatalf("query_type = %v (ok=%v), want instant", v, ok)
 	}
 	if v, ok := field(got.args, "query"); !ok || v != "up" {
 		t.Fatalf("query = %v (ok=%v), want up", v, ok)

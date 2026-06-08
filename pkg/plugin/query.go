@@ -104,9 +104,9 @@ func (q *Query) getQueryURL(rawURL string, queryParams url.Values) (string, erro
 	return u.String(), nil
 }
 
-// endpoint returns the VM API endpoint this query targets ("instant" or "range"),
-// matching the branching in getQueryURL.
-func (q *Query) endpoint() string {
+// queryType returns the kind of query this is ("instant" or "range"), matching the
+// branching in getQueryURL.
+func (q *Query) queryType() string {
 	if q.Range || !q.Instant {
 		return "range"
 	}
