@@ -169,16 +169,19 @@ func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataReques
 		return nil, err
 	}
 	ruleUID := ruleUIDFromHeaders(headers)
+	orgID := req.PluginContext.OrgID
 
-	// TEMP debug (to be removed): confirm which header key Grafana actually delivers the
-	// rule UID under during a real alerting eval (http_X-Rule-Uid vs X-Rule-Uid). We log
-	// both candidate values, the resolved UID, and all header key names (names only — not
+	// TEMP debug (to be removed): confirm during a real alerting eval (1) which header
+	// key Grafana delivers the rule UID under (http_X-Rule-Uid vs X-Rule-Uid) and (2)
+	// that OrgID is populated for tenant attribution. We log both rule-UID candidate
+	// values, the resolved UID, the org ID, and all header key names (names only — not
 	// values, to avoid leaking auth headers).
 	if forAlerting {
 		d.logger.Info("gc_vm_rule_uid_debug",
 			"http_X-Rule-Uid", headers["http_X-Rule-Uid"],
 			"X-Rule-Uid", headers["X-Rule-Uid"],
 			"resolved_rule_uid", ruleUID,
+			"org_id", orgID,
 			"header_keys", sortedHeaderKeys(headers),
 		)
 	}
@@ -189,7 +192,7 @@ func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataReques
 		wg.Add(1)
 		go func(q backend.DataQuery, forAlerting bool) {
 			defer wg.Done()
-			resp := di.query(ctx, q, forAlerting, ruleUID)
+			resp := di.query(ctx, q, forAlerting, orgID, ruleUID)
 			mu.Lock()
 			response.Responses[q.RefID] = resp
 			mu.Unlock()
@@ -201,7 +204,7 @@ func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataReques
 }
 
 // query process backend.Query and return response
-func (di *DatasourceInstance) query(ctx context.Context, query backend.DataQuery, forAlerting bool, ruleUID string) backend.DataResponse {
+func (di *DatasourceInstance) query(ctx context.Context, query backend.DataQuery, forAlerting bool, orgID int64, ruleUID string) backend.DataResponse {
 	var q Query
 	if err := json.Unmarshal(query.JSON, &q); err != nil {
 		err = fmt.Errorf("failed to parse query json: %s", err)
@@ -276,6 +279,7 @@ func (di *DatasourceInstance) query(ctx context.Context, query backend.DataQuery
 	// emit the trace so we can study it later. Query errors/timeouts never reach here.
 	logSlowAlertingQuery(di.logger, slowQueryLog{
 		forAlerting: forAlerting,
+		orgID:       orgID,
 		ruleUID:     ruleUID,
 		query:       q.Expr,
 		queryType:   q.queryType(),
