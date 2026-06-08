@@ -132,8 +132,11 @@ func TestLogSlowAlertingQuery(t *testing.T) {
 			t.Fatalf("expected exactly 1 log line, got %d", len(l.logs))
 		}
 		got := l.logs[0]
-		if got.msg != slowQueryLogPrefix {
-			t.Fatalf("msg = %q, want %q", got.msg, slowQueryLogPrefix)
+		if got.msg != slowQueryMessage {
+			t.Fatalf("msg = %q, want %q", got.msg, slowQueryMessage)
+		}
+		if v, ok := field(got.args, "event"); !ok || v != slowQueryEvent {
+			t.Fatalf("event = %v (ok=%v), want %q", v, ok, slowQueryEvent)
 		}
 		if v, ok := field(got.args, "org_id"); !ok || v != int64(7) {
 			t.Fatalf("org_id = %v (ok=%v), want 7", v, ok)
@@ -317,8 +320,11 @@ func TestQueryAlertingForcesTraceAndLogsWhenSlow(t *testing.T) {
 		t.Fatalf("expected exactly 1 log line, got %d", len(l.logs))
 	}
 	got := l.logs[0]
-	if got.msg != slowQueryLogPrefix {
-		t.Fatalf("msg = %q, want %q", got.msg, slowQueryLogPrefix)
+	if got.msg != slowQueryMessage {
+		t.Fatalf("msg = %q, want %q", got.msg, slowQueryMessage)
+	}
+	if v, ok := field(got.args, "event"); !ok || v != slowQueryEvent {
+		t.Fatalf("event = %v (ok=%v), want %q", v, ok, slowQueryEvent)
 	}
 	if v, ok := field(got.args, "org_id"); !ok || v != int64(7) {
 		t.Fatalf("org_id = %v (ok=%v), want 7", v, ok)

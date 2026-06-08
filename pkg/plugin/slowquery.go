@@ -18,8 +18,12 @@ import (
 //
 // See docs: groundcover-private/docs/superpowers/specs/2026-06-07-vm-slow-query-insights-design.md
 const (
-	// slowQueryLogPrefix is the stable message prefix our logging infra filters on.
-	slowQueryLogPrefix = "gc_vm_query_trace"
+	// slowQueryEvent is the stable identifier our logging infra filters on. It is logged
+	// as a dedicated "event" field (not the message) so filtering/grouping is an exact
+	// field match, decoupled from the human-readable message wording.
+	slowQueryEvent = "gc_vm_query_trace"
+	// slowQueryMessage is the human-readable @message for the log line.
+	slowQueryMessage = "slow VM monitor query"
 
 	// ruleUIDHeader is the header Grafana sets during alerting evaluation. It builds
 	// rule metadata {Name,Uid,Type,Version} and emits each as http_X-Rule-<key>
@@ -85,10 +89,12 @@ func logSlowAlertingQuery(logger log.Logger, p slowQueryLog) {
 		return
 	}
 
-	// org_id identifies the Grafana org (one per customer), so a slow query can be
-	// attributed to a tenant — Grafana is a shared multi-org deployment, so the log's
-	// origin alone does not tell us which customer it belongs to.
+	// event carries the stable identifier our logging infra filters on. org_id identifies
+	// the Grafana org (one per customer), so a slow query can be attributed to a tenant —
+	// Grafana is a shared multi-org deployment, so the log's origin alone does not tell us
+	// which customer it belongs to.
 	args := []interface{}{
+		"event", slowQueryEvent,
 		"org_id", p.orgID,
 		"query", p.query,
 		"query_type", p.queryType,
@@ -106,7 +112,7 @@ func logSlowAlertingQuery(logger log.Logger, p slowQueryLog) {
 		args = append(args, "trace_anomaly", true)
 	}
 
-	logger.Info(slowQueryLogPrefix, args...)
+	logger.Info(slowQueryMessage, args...)
 }
 
 // traceIsAnomalous reports whether the VM trace is missing/empty for a completed query.
