@@ -121,7 +121,6 @@ func TestLogSlowAlertingQuery(t *testing.T) {
 		l := &fakeLogger{}
 		logSlowAlertingQuery(l, slowQueryLog{
 			forAlerting: true,
-			orgID:       7,
 			ruleUID:     "rule-1",
 			query:       "up",
 			queryType:   "instant",
@@ -139,8 +138,8 @@ func TestLogSlowAlertingQuery(t *testing.T) {
 		if v, ok := field(got.args, "event"); !ok || v != slowQueryEvent {
 			t.Fatalf("event = %v (ok=%v), want %q", v, ok, slowQueryEvent)
 		}
-		if v, ok := field(got.args, "org_id"); !ok || v != int64(7) {
-			t.Fatalf("org_id = %v (ok=%v), want 7", v, ok)
+		if _, ok := field(got.args, "org_id"); ok {
+			t.Fatalf("org_id should not be logged")
 		}
 		if v, ok := field(got.args, "rule_uid"); !ok || v != "rule-1" {
 			t.Fatalf("rule_uid = %v (ok=%v), want rule-1", v, ok)
@@ -313,7 +312,7 @@ func TestQueryAlertingForcesTraceAndLogsWhenSlow(t *testing.T) {
 	withThreshold(t, 0) // any duration counts as slow
 	di, l, lastQuery := newTracingInstance(t, traceVectorBody, 0)
 
-	resp := di.query(context.Background(), instantDataQuery(), true, 7, "rule-42")
+	resp := di.query(context.Background(), instantDataQuery(), true, "rule-42")
 	if resp.Error != nil {
 		t.Fatalf("unexpected query error: %v", resp.Error)
 	}
@@ -331,8 +330,8 @@ func TestQueryAlertingForcesTraceAndLogsWhenSlow(t *testing.T) {
 	if v, ok := field(got.args, "event"); !ok || v != slowQueryEvent {
 		t.Fatalf("event = %v (ok=%v), want %q", v, ok, slowQueryEvent)
 	}
-	if v, ok := field(got.args, "org_id"); !ok || v != int64(7) {
-		t.Fatalf("org_id = %v (ok=%v), want 7", v, ok)
+	if _, ok := field(got.args, "org_id"); ok {
+		t.Fatalf("org_id should not be logged")
 	}
 	if v, ok := field(got.args, "rule_uid"); !ok || v != "rule-42" {
 		t.Fatalf("rule_uid = %v (ok=%v), want rule-42", v, ok)
@@ -362,7 +361,7 @@ func TestQueryNonAlertingDoesNotTraceOrLog(t *testing.T) {
 	withThreshold(t, 0) // even though "slow", non-alerting must not log
 	di, l, lastQuery := newTracingInstance(t, traceVectorBody, 0)
 
-	resp := di.query(context.Background(), instantDataQuery(), false, 0, "")
+	resp := di.query(context.Background(), instantDataQuery(), false, "")
 	if resp.Error != nil {
 		t.Fatalf("unexpected query error: %v", resp.Error)
 	}
@@ -379,7 +378,7 @@ func TestQueryFastAlertingDoesNotLogButStillTraces(t *testing.T) {
 	withThreshold(t, time.Hour) // nothing is slow
 	di, l, lastQuery := newTracingInstance(t, traceVectorBody, 0)
 
-	resp := di.query(context.Background(), instantDataQuery(), true, 7, "rule-42")
+	resp := di.query(context.Background(), instantDataQuery(), true, "rule-42")
 	if resp.Error != nil {
 		t.Fatalf("unexpected query error: %v", resp.Error)
 	}
@@ -396,7 +395,7 @@ func TestQueryErrorDoesNotLog(t *testing.T) {
 	withThreshold(t, 0)
 	di, l, _ := newTracingInstance(t, `{"status":"error"}`, http.StatusInternalServerError)
 
-	resp := di.query(context.Background(), instantDataQuery(), true, 7, "rule-42")
+	resp := di.query(context.Background(), instantDataQuery(), true, "rule-42")
 	if resp.Error == nil {
 		t.Fatalf("expected an error response from a 500")
 	}

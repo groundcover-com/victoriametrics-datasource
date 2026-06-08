@@ -169,7 +169,6 @@ func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataReques
 		return nil, err
 	}
 	ruleUID := ruleUIDFromHeaders(headers)
-	orgID := req.PluginContext.OrgID
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -177,7 +176,7 @@ func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataReques
 		wg.Add(1)
 		go func(q backend.DataQuery, forAlerting bool) {
 			defer wg.Done()
-			resp := di.query(ctx, q, forAlerting, orgID, ruleUID)
+			resp := di.query(ctx, q, forAlerting, ruleUID)
 			mu.Lock()
 			response.Responses[q.RefID] = resp
 			mu.Unlock()
@@ -189,7 +188,7 @@ func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataReques
 }
 
 // query process backend.Query and return response
-func (di *DatasourceInstance) query(ctx context.Context, query backend.DataQuery, forAlerting bool, orgID int64, ruleUID string) backend.DataResponse {
+func (di *DatasourceInstance) query(ctx context.Context, query backend.DataQuery, forAlerting bool, ruleUID string) backend.DataResponse {
 	var q Query
 	if err := json.Unmarshal(query.JSON, &q); err != nil {
 		err = fmt.Errorf("failed to parse query json: %s", err)
@@ -264,7 +263,6 @@ func (di *DatasourceInstance) query(ctx context.Context, query backend.DataQuery
 	// emit the trace so we can study it later. Query errors/timeouts never reach here.
 	logSlowAlertingQuery(di.logger, slowQueryLog{
 		forAlerting: forAlerting,
-		orgID:       orgID,
 		ruleUID:     ruleUID,
 		query:       q.Expr,
 		queryType:   q.queryType(),

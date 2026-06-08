@@ -41,7 +41,6 @@ var slowQueryThreshold = 3 * time.Second
 // and what to put in it.
 type slowQueryLog struct {
 	forAlerting bool
-	orgID       int64
 	ruleUID     string
 	query       string
 	queryType   string
@@ -73,13 +72,11 @@ func logSlowAlertingQuery(logger log.Logger, p slowQueryLog) {
 		return
 	}
 
-	// event carries the stable identifier our logging infra filters on. org_id identifies
-	// the Grafana org (one per customer), so a slow query can be attributed to a tenant —
-	// Grafana is a shared multi-org deployment, so the log's origin alone does not tell us
-	// which customer it belongs to.
+	// event carries the stable identifier our logging infra filters on. Customer/tenant
+	// attribution comes from the log's ingestion account context and from rule_uid (which
+	// maps back to a Monitor) — not from a field here.
 	args := []interface{}{
 		"event", slowQueryEvent,
-		"org_id", p.orgID,
 		"query", p.query,
 		"query_type", p.queryType,
 		"duration_ms", p.duration.Milliseconds(),
