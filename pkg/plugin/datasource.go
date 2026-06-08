@@ -168,6 +168,20 @@ func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataReques
 	if err != nil {
 		return nil, err
 	}
+	ruleUID := ruleUIDFromHeaders(headers)
+
+	// TEMP debug (to be removed): confirm which header key Grafana actually delivers the
+	// rule UID under during a real alerting eval (http_X-Rule-Uid vs X-Rule-Uid). We log
+	// both candidate values, the resolved UID, and all header key names (names only — not
+	// values, to avoid leaking auth headers).
+	if forAlerting {
+		d.logger.Info("gc_vm_rule_uid_debug",
+			"http_X-Rule-Uid", headers["http_X-Rule-Uid"],
+			"X-Rule-Uid", headers["X-Rule-Uid"],
+			"resolved_rule_uid", ruleUID,
+			"header_keys", sortedHeaderKeys(headers),
+		)
+	}
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -175,7 +189,7 @@ func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataReques
 		wg.Add(1)
 		go func(q backend.DataQuery, forAlerting bool) {
 			defer wg.Done()
-			resp := di.query(ctx, q, forAlerting)
+			resp := di.query(ctx, q, forAlerting, ruleUID)
 			mu.Lock()
 			response.Responses[q.RefID] = resp
 			mu.Unlock()
@@ -187,7 +201,7 @@ func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataReques
 }
 
 // query process backend.Query and return response
-func (di *DatasourceInstance) query(ctx context.Context, query backend.DataQuery, forAlerting bool) backend.DataResponse {
+func (di *DatasourceInstance) query(ctx context.Context, query backend.DataQuery, forAlerting bool, ruleUID string) backend.DataResponse {
 	var q Query
 	if err := json.Unmarshal(query.JSON, &q); err != nil {
 		err = fmt.Errorf("failed to parse query json: %s", err)
@@ -198,6 +212,14 @@ func (di *DatasourceInstance) query(ctx context.Context, query backend.DataQuery
 	q.MaxDataPoints = query.MaxDataPoints
 	q.TimeInterval = di.settings.TimeInterval
 	q.BackendQueryInterval = query.Interval
+
+	// For monitor (alerting) evaluations we always request VM's execution trace so we
+	// can log it when the query turns out to be slow. The trace frame is dropped from
+	// alerting responses (see Response.getDataFrames), so this does not change what
+	// Grafana receives.
+	if forAlerting {
+		q.Trace = 1
+	}
 
 	reqURL, err := q.getQueryURL(di.url, di.queryParams)
 	if err != nil {
@@ -210,6 +232,7 @@ func (di *DatasourceInstance) query(ctx context.Context, query backend.DataQuery
 		err = fmt.Errorf("failed to create new request with context: %w", err)
 		return newResponseError(err, backend.StatusBadRequest)
 	}
+	start := time.Now()
 	resp, err := di.httpClient.Do(req)
 	if err != nil {
 		if !isTrivialError(err) {
@@ -248,6 +271,17 @@ func (di *DatasourceInstance) query(ctx context.Context, query backend.DataQuery
 	}
 
 	r.ForAlerting = forAlerting
+
+	// The VM query completed (200 OK, decoded). If it was a slow monitor evaluation,
+	// emit the trace so we can study it later. Query errors/timeouts never reach here.
+	logSlowAlertingQuery(di.logger, slowQueryLog{
+		forAlerting: forAlerting,
+		ruleUID:     ruleUID,
+		query:       q.Expr,
+		endpoint:    q.endpoint(),
+		duration:    time.Since(start),
+		trace:       r.Trace,
+	})
 
 	frames, err := r.getDataFrames()
 	if err != nil {

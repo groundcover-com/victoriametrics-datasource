@@ -104,6 +104,15 @@ func (q *Query) getQueryURL(rawURL string, queryParams url.Values) (string, erro
 	return u.String(), nil
 }
 
+// endpoint returns the VM API endpoint this query targets ("instant" or "range"),
+// matching the branching in getQueryURL.
+func (q *Query) endpoint() string {
+	if q.Range || !q.Instant {
+		return "range"
+	}
+	return "instant"
+}
+
 // withIntervalVariable checks does query has interval variable
 func (q *Query) withIntervalVariable() bool {
 	return q.Interval == varInterval || q.Interval == varIntervalMs || q.Interval == varRateInterval
