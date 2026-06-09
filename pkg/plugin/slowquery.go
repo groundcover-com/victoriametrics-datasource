@@ -16,7 +16,6 @@ import (
 // query type, duration). The groundcover sensor collects the line through the existing
 // k8s log pipeline; this phase produces the log line only — no parsing or storage.
 //
-// See docs: groundcover-private/docs/superpowers/specs/2026-06-07-vm-slow-query-insights-design.md
 const (
 	// slowQueryEvent is the stable identifier our logging infra filters on. It is logged
 	// as a dedicated "event" field (not the message) so filtering/grouping is an exact
