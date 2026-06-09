@@ -192,7 +192,10 @@ type dataframe interface {
 }
 
 func (r *Response) getDataFrames() (fss data.Frames, err error) {
-	if r.Trace != nil {
+	// We force trace=1 on alerting requests solely to log the VM trace; the trace must
+	// never surface as a frame to Grafana's alert evaluation (it would otherwise be
+	// appended for matrix/scalar results and could skew a range-query monitor).
+	if r.Trace != nil && !r.ForAlerting {
 		fss = append(fss, &data.Frame{
 			Meta: &data.FrameMeta{
 				Custom: &CustomMeta{
